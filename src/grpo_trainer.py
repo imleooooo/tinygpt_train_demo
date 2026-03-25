@@ -94,36 +94,75 @@ class GRPOTrainer:
     # ------------------------------------------------------------------ #
 
     def _response_log_prob(self, model: TinyGPT, full_ids: torch.Tensor, response_start: int) -> torch.Tensor:
-        """Scalar: sum of log-probs over response tokens under `model`."""
-        # full_ids: (T,) — add batch dim
-        ids = full_ids.unsqueeze(0)[:, :self.block_size]  # (1, T)
-        logits = model(ids)                                # (1, T, V)
-        log_probs = F.log_softmax(logits, dim=-1)          # (1, T, V)
+        """Scalar: sum of log-probs over ALL response tokens under `model`.
 
-        # Positions that predict response tokens:
-        # position i in logits predicts token i+1, so response token at
-        # position response_start is predicted by logit at response_start-1.
-        rs = min(response_start, ids.shape[1] - 1)
-        # label ids: response tokens clipped to block_size
-        label_ids = ids[0, rs:]         # (L,)
-        pred_lp   = log_probs[0, rs - 1: rs - 1 + label_ids.shape[0], :]  # (L, V)
-        token_lp  = pred_lp.gather(1, label_ids.unsqueeze(1)).squeeze(1)   # (L,)
-        return token_lp.sum()
+        Handles sequences longer than block_size without truncation:
+
+        Part 1 — one forward pass on full_ids[:block_size].
+                 Covers response positions [response_start, min(T, block_size)).
+                 logits[i] predicts full_ids[i+1], so target at position t
+                 uses logit index t-1.
+
+        Part 2 — batched forward pass for overflow positions [block_size, T).
+                 For each overflow position t, the correct causal context is
+                 full_ids[t-block_size+1 : t]  (length block_size-1).
+                 All such windows are stacked into one batch (T-B, B-1) and
+                 the last logit of each row predicts the corresponding token.
+        """
+        T = full_ids.shape[0]
+        B = self.block_size
+        seq_lp = torch.tensor(0.0, device=self.device)
+
+        # Part 1: positions in [response_start, min(T, B))
+        end1 = min(T, B)
+        if response_start < end1:
+            ids1 = full_ids[:end1].unsqueeze(0)           # (1, end1)
+            lp1 = F.log_softmax(model(ids1)[0], dim=-1)   # (end1, V)
+            # lp1[t-1] predicts full_ids[t]
+            tok_lp = lp1[response_start - 1: end1 - 1].gather(
+                1, full_ids[response_start:end1].unsqueeze(1)
+            ).squeeze(1)
+            seq_lp = seq_lp + tok_lp.sum()
+
+        # Part 2: overflow positions [B, T) — each needs its own context window
+        if T > B:
+            # window for position t:  full_ids[t-B+1 : t],  length B-1
+            windows = torch.stack(
+                [full_ids[t - B + 1: t] for t in range(B, T)]
+            )                                              # (T-B, B-1)
+            lp2 = F.log_softmax(model(windows)[:, -1, :], dim=-1)  # (T-B, V)
+            targets = full_ids[B:T]                        # (T-B,)
+            seq_lp = seq_lp + lp2.gather(1, targets.unsqueeze(1)).squeeze(1).sum()
+
+        return seq_lp
 
     # ------------------------------------------------------------------ #
     # KL penalty  KL(π_θ ‖ π_ref) averaged over all positions            #
     # ------------------------------------------------------------------ #
 
-    def _kl_penalty(self, full_ids: torch.Tensor) -> torch.Tensor:
-        ids = full_ids.unsqueeze(0)[:, :self.block_size]
+    def _kl_penalty(self, full_ids: torch.Tensor, response_start: int) -> torch.Tensor:
+        """KL(π_θ ‖ π_ref) averaged over generated response positions only.
+
+        Prompt tokens are excluded: the policy never chose them, so including
+        them in the KL budget would incorrectly penalise divergence on the
+        fixed instruction prefix and bias training toward matching the reference
+        on tokens that were never sampled or rewarded.
+        """
+        B = self.block_size
+        ids = full_ids[:B].unsqueeze(0)       # cap at block_size; (1, ≤B, V)
+        rs  = min(response_start, ids.shape[1] - 1)
+
         with torch.no_grad():
             ref_logits = self.reference(ids)
         pol_logits = self.policy(ids)
-        ref_lp = F.log_softmax(ref_logits, dim=-1)
-        pol_lp = F.log_softmax(pol_logits, dim=-1)
+
+        ref_lp = F.log_softmax(ref_logits[0], dim=-1)   # (T, V)
+        pol_lp = F.log_softmax(pol_logits[0], dim=-1)
         pol_p  = pol_lp.exp()
-        kl = (pol_p * (pol_lp - ref_lp)).sum(-1).mean()
-        return kl
+
+        # Per-token KL restricted to response positions [rs, T)
+        kl_per_token = (pol_p[rs:] * (pol_lp[rs:] - ref_lp[rs:])).sum(-1)  # (T-rs,)
+        return kl_per_token.mean() if kl_per_token.numel() > 0 else torch.tensor(0.0, device=self.device)
 
     # ------------------------------------------------------------------ #
     # Training loop                                                        #
@@ -158,7 +197,7 @@ class GRPOTrainer:
                     A_i = (rollout.reward - mean_r) / (std_r + 1e-8)
                     lp  = self._response_log_prob(self.policy, rollout.full_ids, rollout.response_start)
                     pg_loss_total = pg_loss_total - A_i * lp
-                    kl_total = kl_total + self._kl_penalty(rollout.full_ids)
+                    kl_total = kl_total + self._kl_penalty(rollout.full_ids, rollout.response_start)
 
             n = cfg.batch_size * cfg.G
             loss = pg_loss_total / n + cfg.beta * (kl_total / n)
