@@ -4,7 +4,8 @@
 # Checkpoints — generated at runtime, not needed in the image
 *.pt
 
-# Exclude all local data files, then re-include only the checked-in datasets
+# Exclude all local data files, then re-include runtime-required datasets
 data/
+!data/tiny_shakespeare.txt
 !data/sft_data.json
 !data/grpo_prompts.json
