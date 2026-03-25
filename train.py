@@ -51,6 +51,7 @@ def main(argv: list[str] | None = None) -> None:
         for _name in ("src", __name__):
             _lg = logging.getLogger(_name)
             _lg.setLevel(args.log_level)
+            _lg.handlers.clear()
             _lg.addHandler(_handler)
             _lg.propagate = False
 
