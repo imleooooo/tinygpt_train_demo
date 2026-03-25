@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import random
 
 import torch
 
@@ -42,9 +41,6 @@ def main(argv: list[str] | None = None) -> None:
             format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
             datefmt="%H:%M:%S",
         )
-        random.seed(cfg.seed)
-        torch.manual_seed(cfg.seed)
-        torch.backends.cudnn.deterministic = True
     else:
         # Embedded use: attach our own handler directly to our loggers and stop
         # propagation so --log-level is honoured regardless of what level filters
@@ -106,4 +102,9 @@ def main(argv: list[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
+    import random
+    _cfg = TrainConfig()
+    random.seed(_cfg.seed)
+    torch.manual_seed(_cfg.seed)
+    torch.backends.cudnn.deterministic = True
     main()
