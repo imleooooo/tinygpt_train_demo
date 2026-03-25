@@ -8,13 +8,17 @@ from config import TrainConfig
 def load_model(checkpoint_path: str, device: torch.device):
     """Load TinyGPT model and tokenizer from a checkpoint.
 
-    The checkpoint is self-contained: the tokenizer vocab is stored inside it,
-    so the original data/tokenizer.json file is not required.
+    New checkpoints are self-contained: the tokenizer vocab is embedded inside
+    them. Old checkpoints (pre-self-contained) fall back to reading
+    cfg.tokenizer_file so previously trained checkpoints keep working.
     """
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
     cfg: TrainConfig = ckpt["config"]
 
-    tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
+    if "tokenizer_char2idx" in ckpt:
+        tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
+    else:
+        tokenizer = CharTokenizer.load(cfg.tokenizer_file)
 
     model = TinyGPT(
         vocab_size=tokenizer.vocab_size,

@@ -55,9 +55,10 @@ class Trainer:
         return sum(losses) / len(losses)
 
     def _generate_sample(self, prompt: str = "\n") -> str:
-        idx = torch.tensor(
-            [self.tokenizer.encode(prompt)], dtype=torch.long, device=self.device
-        )
+        # Use errors="ignore" so unknown characters in the seed prompt are
+        # silently dropped rather than crashing training on non-Shakespeare corpora.
+        ids = self.tokenizer.encode(prompt, errors="ignore") or [0]
+        idx = torch.tensor([ids], dtype=torch.long, device=self.device)
         out = self.model.generate(
             idx,
             max_new_tokens=self.config.sample_length,
