@@ -104,10 +104,11 @@ class GRPOTrainer:
                  uses logit index t-1.
 
         Part 2 — batched forward pass for overflow positions [block_size, T).
-                 For each overflow position t, the correct causal context is
-                 full_ids[t-block_size+1 : t]  (length block_size-1).
-                 All such windows are stacked into one batch (T-B, B-1) and
-                 the last logit of each row predicts the corresponding token.
+                 generate() crops context with idx[:, -block_size:], so token t
+                 is sampled from full_ids[t-block_size : t]  (length block_size).
+                 Training must use the same B-token context; the last logit of the
+                 forward pass on that window predicts full_ids[t].
+                 All such windows are stacked into one batch (T-B, B).
         """
         T = full_ids.shape[0]
         B = self.block_size
@@ -126,10 +127,14 @@ class GRPOTrainer:
 
         # Part 2: overflow positions [B, T) — each needs its own context window
         if T > B:
-            # window for position t:  full_ids[t-B+1 : t],  length B-1
+            # generate() uses idx[:, -block_size:] to predict the next token,
+            # so token at absolute position t is sampled from the distribution
+            # produced by context full_ids[t-B : t]  (exactly B tokens).
+            # Using B-1 tokens would be a different conditional than the one
+            # that produced the action.
             windows = torch.stack(
-                [full_ids[t - B + 1: t] for t in range(B, T)]
-            )                                              # (T-B, B-1)
+                [full_ids[t - B: t] for t in range(B, T)]
+            )                                              # (T-B, B)
             lp2 = F.log_softmax(model(windows)[:, -1, :], dim=-1)  # (T-B, V)
             targets = full_ids[B:T]                        # (T-B,)
             seq_lp = seq_lp + lp2.gather(1, targets.unsqueeze(1)).squeeze(1).sum()
@@ -149,19 +154,25 @@ class GRPOTrainer:
         on tokens that were never sampled or rewarded.
         """
         B = self.block_size
-        ids = full_ids[:B].unsqueeze(0)       # cap at block_size; (1, ≤B, V)
-        rs  = min(response_start, ids.shape[1] - 1)
+        ids = full_ids[:B].unsqueeze(0)   # (1, T_local) where T_local = min(T, B)
+        T_local = ids.shape[1]
+        rs = min(response_start, T_local)
 
         with torch.no_grad():
             ref_logits = self.reference(ids)
         pol_logits = self.policy(ids)
 
-        ref_lp = F.log_softmax(ref_logits[0], dim=-1)   # (T, V)
+        ref_lp = F.log_softmax(ref_logits[0], dim=-1)   # (T_local, V)
         pol_lp = F.log_softmax(pol_logits[0], dim=-1)
         pol_p  = pol_lp.exp()
 
-        # Per-token KL restricted to response positions [rs, T)
-        kl_per_token = (pol_p[rs:] * (pol_lp[rs:] - ref_lp[rs:])).sum(-1)  # (T-rs,)
+        # logit row i predicts token i+1, so logit rows [rs-1, T_local-1)
+        # are the distributions over the response tokens [rs, T_local).
+        # Slicing from rs (the previous off-by-one) would drop the first
+        # generated token and include a logit predicting beyond the sequence.
+        if rs < 1 or rs >= T_local:
+            return torch.tensor(0.0, device=self.device)
+        kl_per_token = (pol_p[rs - 1: T_local - 1] * (pol_lp[rs - 1: T_local - 1] - ref_lp[rs - 1: T_local - 1])).sum(-1)
         return kl_per_token.mean() if kl_per_token.numel() > 0 else torch.tensor(0.0, device=self.device)
 
     # ------------------------------------------------------------------ #
