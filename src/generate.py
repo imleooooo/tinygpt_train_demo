@@ -6,11 +6,15 @@ from config import TrainConfig
 
 
 def load_model(checkpoint_path: str, device: torch.device):
-    """Load TinyGPT model and tokenizer from a checkpoint."""
+    """Load TinyGPT model and tokenizer from a checkpoint.
+
+    The checkpoint is self-contained: the tokenizer vocab is stored inside it,
+    so the original data/tokenizer.json file is not required.
+    """
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
     cfg: TrainConfig = ckpt["config"]
 
-    tokenizer = CharTokenizer.load(cfg.tokenizer_file)
+    tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
 
     model = TinyGPT(
         vocab_size=tokenizer.vocab_size,
@@ -35,6 +39,9 @@ def generate_text(
     top_k: int,
     device: torch.device,
 ) -> str:
-    idx = torch.tensor([tokenizer.encode(prompt)], dtype=torch.long, device=device)
+    # encode() raises ValueError for unseen characters by default, giving a
+    # clear message instead of a cryptic IndexError from an empty tensor.
+    ids = tokenizer.encode(prompt)
+    idx = torch.tensor([ids], dtype=torch.long, device=device)
     out = model.generate(idx, max_new_tokens, temperature, top_k)
     return tokenizer.decode(out[0].tolist())
