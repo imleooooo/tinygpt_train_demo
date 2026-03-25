@@ -4,6 +4,7 @@
 # Checkpoints — generated at runtime, not needed in the image
 *.pt
 
-# Large training data — fetched or generated at runtime
-data/tiny_shakespeare.txt
-data/tokenizer.json
+# Exclude all local data files, then re-include only the checked-in datasets
+data/
+!data/sft_data.json
+!data/grpo_prompts.json
