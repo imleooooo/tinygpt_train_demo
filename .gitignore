@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 *.pyo
-data/
+data/*.txt
 checkpoint.pt
 *.pt
 .DS_Store

@@ -4,10 +4,16 @@ A minimal, educational demo that trains a GPT-style language model **from scratc
 
 ## What this is
 
-- **Decoder-only Transformer** (~811K parameters), the same architecture behind GPT-2 and LLaMA
+This demo covers the first two stages of modern LLM training:
+
+| Stage | What the model learns | Entry point |
+|---|---|---|
+| **Pre-training** | Next-token prediction on raw text | `train.py` |
+| **SFT** | Follow instruction → response format | `sft.py` |
+
+- **Decoder-only Transformer** (~818K parameters), the same architecture behind GPT-2 and LLaMA
 - **Character-level tokenizer** — simple and fully transparent, no external libraries
-- **Training objective**: next-token prediction (causal language modeling)
-- **Dataset**: Tiny Shakespeare (~1 MB, auto-downloaded)
+- **Dataset**: Tiny Shakespeare (~1 MB, auto-downloaded) for pre-training; 30 hand-crafted Q&A pairs for SFT
 
 ## Quickstart
 
@@ -23,6 +29,31 @@ python generate.py --prompt "ROMEO:\n"
 ```
 
 Training prints loss every 100 steps and generates a sample every 500 steps so you can watch the model learn.
+
+## SFT (Supervised Fine-Tuning)
+
+SFT teaches the pretrained model to follow instructions instead of just continuing text.
+The key difference from pre-training: **loss is computed only on response tokens** — the
+instruction portion contributes zero gradient.
+
+```bash
+# 1. Pre-train first (produces checkpoint.pt)
+python train.py
+
+# 2. Fine-tune on instruction-response pairs (produces sft_checkpoint.pt)
+python sft.py
+
+# 3. Query the fine-tuned model
+python generate.py --checkpoint sft_checkpoint.pt \
+  --prompt $'INSTRUCTION:\nWho is Romeo?\nRESPONSE:\n'
+```
+
+SFT hyperparameters live in `sft_config.py`. Training data is in `data/sft_data.json`
+(30 Shakespeare-style Q&A pairs). Extend it with your own examples in the same format:
+
+```json
+{"instruction": "your question", "response": "the answer"}
+```
 
 ## Estimated training time
 
@@ -70,16 +101,23 @@ Increase `n_embd` / `n_layer` for a larger model, or `max_iters` for longer trai
 ## Project structure
 
 ```
-├── config.py          # All hyperparameters
-├── train.py           # Training entry point
-├── generate.py        # Inference entry point
+├── config.py          # Pre-training hyperparameters
+├── sft_config.py      # SFT hyperparameters
+├── train.py           # Pre-training entry point
+├── sft.py             # SFT entry point
+├── generate.py        # Inference entry point (works with both checkpoints)
 ├── requirements.txt
+├── data/
+│   ├── tiny_shakespeare.txt   # Auto-downloaded
+│   └── sft_data.json          # 30 instruction-response pairs
 └── src/
-    ├── tokenizer.py   # Character-level tokenizer
-    ├── dataset.py     # Sliding-window dataset + data download
-    ├── model.py       # CausalSelfAttention, TransformerBlock, TinyGPT
-    ├── trainer.py     # Training loop, checkpointing, sampling
-    └── generate.py    # load_model() and generate_text() utilities
+    ├── tokenizer.py       # Character-level tokenizer
+    ├── dataset.py         # Sliding-window dataset + data download
+    ├── model.py           # CausalSelfAttention, TransformerBlock, TinyGPT
+    ├── trainer.py         # Pre-training loop, checkpointing, sampling
+    ├── sft_dataset.py     # SFT dataset with response-only loss masking
+    ├── sft_trainer.py     # SFT training loop
+    └── generate.py        # load_model() and generate_text() utilities
 ```
 
 ## Checkpoint portability
