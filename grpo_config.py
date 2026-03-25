@@ -28,3 +28,6 @@ class GRPOConfig:
     sample_length:   int   = 120
     temperature:     float = 0.9    # higher temp → more diverse rollouts
     top_k:           int   = 40
+
+    # Reproducibility
+    seed:            int   = 42

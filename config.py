@@ -34,3 +34,6 @@ class TrainConfig:
     # Generation defaults
     temperature: float = 0.8
     top_k: int = 40
+
+    # Reproducibility
+    seed: int = 42

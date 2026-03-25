@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import random
 
 import torch
 
@@ -60,6 +61,9 @@ def main(argv: list[str] | None = None) -> None:
             _lg.propagate = False
 
     cfg = TrainConfig()
+    random.seed(cfg.seed)
+    torch.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = True
     device = get_device()
     logger.info("Using device: %s", device)
 

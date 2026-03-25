@@ -23,3 +23,6 @@ class SFTConfig:
     sample_length: int = 150
     temperature: float = 0.7
     top_k: int = 40
+
+    # Reproducibility
+    seed: int = 42
