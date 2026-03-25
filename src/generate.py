@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 from src.model import TinyGPT
@@ -18,7 +20,12 @@ def load_model(checkpoint_path: str, device: torch.device):
     if "tokenizer_char2idx" in ckpt:
         tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
     else:
-        tokenizer = CharTokenizer.load(cfg.tokenizer_file)
+        # Resolve cfg.tokenizer_file relative to the checkpoint's directory so
+        # that a moved checkpoint still finds its co-located data/ folder, and
+        # cannot accidentally pick up a different run's tokenizer from CWD.
+        ckpt_dir = os.path.dirname(os.path.abspath(checkpoint_path))
+        tok_path = os.path.join(ckpt_dir, cfg.tokenizer_file)
+        tokenizer = CharTokenizer.load(tok_path)
 
     model = TinyGPT(
         vocab_size=tokenizer.vocab_size,
