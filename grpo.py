@@ -1,12 +1,16 @@
 """Entry point for GRPO training on top of a fine-tuned TinyGPT."""
 
+import argparse
 import json
+import logging
 
 import torch
 
 from grpo_config import GRPOConfig
 from src.generate import load_model
 from src.grpo_trainer import GRPOTrainer
+
+logger = logging.getLogger(__name__)
 
 
 def get_device() -> torch.device:
@@ -17,14 +21,29 @@ def get_device() -> torch.device:
     return torch.device("cpu")
 
 
-def main():
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Align TinyGPT with GRPO")
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging verbosity (default: INFO)",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=args.log_level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     cfg = GRPOConfig()
     device = get_device()
-    print(f"Using device: {device}")
+    logger.info("Using device: %s", device)
 
     # Peek at the SFT checkpoint's pretrain config to get model architecture
     # and dropout — same pattern as sft.py
-    print(f"Loading SFT checkpoint: {cfg.sft_checkpoint}")
+    logger.info("Loading SFT checkpoint: %s", cfg.sft_checkpoint)
     pretrain_cfg = torch.load(
         cfg.sft_checkpoint, map_location="cpu", weights_only=False
     )["config"]
@@ -39,14 +58,14 @@ def main():
     for param in reference.parameters():
         param.requires_grad_(False)
 
-    print(f"Model parameters: {policy.num_parameters():,}")
-    print(f"Vocab size: {tokenizer.vocab_size}")
-    print(f"Group size G={cfg.G}, batch={cfg.batch_size}, beta={cfg.beta}")
+    logger.info("Model parameters: %s", f"{policy.num_parameters():,}")
+    logger.info("Vocab size: %d", tokenizer.vocab_size)
+    logger.info("Group size G=%d, batch=%d, beta=%s", cfg.G, cfg.batch_size, cfg.beta)
 
     # Load prompts
     with open(cfg.prompts_file, "r", encoding="utf-8") as f:
         prompts = json.load(f)
-    print(f"Prompts: {len(prompts)}")
+    logger.info("Prompts: %d", len(prompts))
 
     # Train
     trainer = GRPOTrainer(policy, reference, prompts, tokenizer, cfg, pretrain_cfg, device)

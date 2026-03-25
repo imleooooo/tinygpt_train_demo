@@ -1,7 +1,10 @@
 """GRPO trainer: Group Relative Policy Optimization (DeepSeek-R1 style)."""
 
+import logging
 import time
 from typing import NamedTuple
+
+logger = logging.getLogger(__name__)
 
 import torch
 import torch.nn.functional as F
@@ -222,12 +225,10 @@ class GRPOTrainer:
                 mean_r = sum(all_rewards) / len(all_rewards)
                 std_r  = (sum((r - mean_r) ** 2 for r in all_rewards) / len(all_rewards)) ** 0.5
                 elapsed = time.time() - t0
-                print(
-                    f"step {step:4d}/{cfg.max_iters} | "
-                    f"loss {loss.item():.4f} | "
-                    f"reward {mean_r:.3f} ± {std_r:.3f} | "
-                    f"kl {(kl_total / n).item():.4f} | "
-                    f"{elapsed:.1f}s"
+                logger.info(
+                    "step %4d/%d | loss %.4f | reward %.3f ± %.3f | kl %.4f | %.1fs",
+                    step, cfg.max_iters, loss.item(), mean_r, std_r,
+                    (kl_total / n).item(), elapsed,
                 )
                 t0 = time.time()
 
@@ -236,7 +237,7 @@ class GRPOTrainer:
                 self._save_checkpoint(step)
 
         self._save_checkpoint(cfg.max_iters)
-        print(f"\nGRPO complete. Checkpoint saved to {cfg.grpo_checkpoint}")
+        logger.info("GRPO complete. Checkpoint saved to %s", cfg.grpo_checkpoint)
 
     @torch.no_grad()
     def _print_sample(self, prompt: str) -> None:
@@ -247,9 +248,7 @@ class GRPOTrainer:
         out = self.policy.generate(idx, self.config.sample_length,
                                    self.config.temperature, self.config.top_k)
         self.policy.train()
-        print("\n--- Sample ---")
-        print(self.tokenizer.decode(out[0].tolist()))
-        print("--------------\n")
+        logger.info("Sample output:\n%s", self.tokenizer.decode(out[0].tolist()))
 
     def _save_checkpoint(self, step: int) -> None:
         torch.save(

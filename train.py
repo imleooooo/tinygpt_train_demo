@@ -1,5 +1,8 @@
 """Entry point for training TinyGPT on Tiny Shakespeare."""
 
+import argparse
+import logging
+
 import torch
 
 from config import TrainConfig
@@ -7,6 +10,8 @@ from src.dataset import TextDataset, download_shakespeare
 from src.model import TinyGPT
 from src.tokenizer import CharTokenizer
 from src.trainer import Trainer
+
+logger = logging.getLogger(__name__)
 
 
 def get_device() -> torch.device:
@@ -17,10 +22,25 @@ def get_device() -> torch.device:
     return torch.device("cpu")
 
 
-def main():
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Pre-train TinyGPT on Tiny Shakespeare")
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging verbosity (default: INFO)",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=args.log_level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     cfg = TrainConfig()
     device = get_device()
-    print(f"Using device: {device}")
+    logger.info("Using device: %s", device)
 
     # 1. Download data
     download_shakespeare(cfg.data_url, cfg.data_file)
@@ -28,11 +48,11 @@ def main():
     # 2. Load text and build tokenizer
     with open(cfg.data_file, "r", encoding="utf-8") as f:
         text = f.read()
-    print(f"Dataset size: {len(text):,} characters")
+    logger.info("Dataset size: %s characters", f"{len(text):,}")
 
     tokenizer = CharTokenizer().build(text)
     tokenizer.save(cfg.tokenizer_file)
-    print(f"Vocab size: {tokenizer.vocab_size} characters")
+    logger.info("Vocab size: %d characters", tokenizer.vocab_size)
 
     # 3. Encode entire corpus into a flat token tensor
     data = torch.tensor(tokenizer.encode(text), dtype=torch.long)
@@ -41,7 +61,7 @@ def main():
     split = int(len(data) * (1 - cfg.val_split))
     train_data = TextDataset(data[:split], cfg.block_size)
     val_data = TextDataset(data[split:], cfg.block_size)
-    print(f"Train tokens: {split:,}  |  Val tokens: {len(data) - split:,}")
+    logger.info("Train tokens: %s  |  Val tokens: %s", f"{split:,}", f"{len(data) - split:,}")
 
     # 5. Build model
     model = TinyGPT(
@@ -52,7 +72,7 @@ def main():
         n_layer=cfg.n_layer,
         dropout=cfg.dropout,
     ).to(device)
-    print(f"Model parameters: {model.num_parameters():,}")
+    logger.info("Model parameters: %s", f"{model.num_parameters():,}")
 
     # 6. Train
     trainer = Trainer(model, train_data, val_data, tokenizer, cfg, device)

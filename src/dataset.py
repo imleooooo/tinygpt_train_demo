@@ -1,8 +1,11 @@
+import logging
 import os
 import urllib.request
 
 import torch
 from torch.utils.data import Dataset
+
+logger = logging.getLogger(__name__)
 
 
 def download_shakespeare(url: str, dest: str) -> None:
@@ -10,9 +13,9 @@ def download_shakespeare(url: str, dest: str) -> None:
     if os.path.exists(dest):
         return
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    print(f"Downloading dataset to {dest} ...")
+    logger.info("Downloading dataset to %s ...", dest)
     urllib.request.urlretrieve(url, dest)
-    print("Download complete.")
+    logger.info("Download complete.")
 
 
 class TextDataset(Dataset):

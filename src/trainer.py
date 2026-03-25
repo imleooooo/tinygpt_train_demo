@@ -1,3 +1,4 @@
+import logging
 import time
 
 import torch
@@ -7,6 +8,8 @@ from torch.utils.data import DataLoader, Dataset
 from config import TrainConfig
 from src.model import TinyGPT
 from src.tokenizer import CharTokenizer
+
+logger = logging.getLogger(__name__)
 
 
 class Trainer:
@@ -106,23 +109,19 @@ class Trainer:
             if step % cfg.log_interval == 0:
                 elapsed = time.time() - t0
                 val_loss = self._estimate_val_loss()
-                print(
-                    f"step {step:5d}/{cfg.max_iters} | "
-                    f"train loss {loss.item():.4f} | "
-                    f"val loss {val_loss:.4f} | "
-                    f"{elapsed:.1f}s elapsed"
+                logger.info(
+                    "step %5d/%d | train loss %.4f | val loss %.4f | %.1fs elapsed",
+                    step, cfg.max_iters, loss.item(), val_loss, elapsed,
                 )
                 t0 = time.time()
 
             if step % cfg.sample_interval == 0:
-                print("\n--- Sample output ---")
-                print(self._generate_sample("ROMEO:\n"))
-                print("---------------------\n")
+                logger.info("Sample output:\n%s", self._generate_sample("ROMEO:\n"))
                 self._save_checkpoint(step)
 
         # Final checkpoint
         self._save_checkpoint(cfg.max_iters)
-        print(f"\nTraining complete. Checkpoint saved to {cfg.checkpoint_file}")
+        logger.info("Training complete. Checkpoint saved to %s", cfg.checkpoint_file)
 
     def _save_checkpoint(self, step: int) -> None:
         torch.save(

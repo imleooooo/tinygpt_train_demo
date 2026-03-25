@@ -1,3 +1,4 @@
+import logging
 import time
 
 import torch
@@ -8,6 +9,8 @@ from sft_config import SFTConfig
 from src.model import TinyGPT
 from src.tokenizer import CharTokenizer
 from src.sft_dataset import INSTRUCTION_PREFIX, RESPONSE_PREFIX
+
+logger = logging.getLogger(__name__)
 
 
 class SFTTrainer:
@@ -95,21 +98,18 @@ class SFTTrainer:
 
             if step % cfg.log_interval == 0:
                 elapsed = time.time() - t0
-                print(
-                    f"step {step:4d}/{cfg.max_iters} | "
-                    f"loss {loss.item():.4f} | "
-                    f"{elapsed:.1f}s elapsed"
+                logger.info(
+                    "step %4d/%d | loss %.4f | %.1fs elapsed",
+                    step, cfg.max_iters, loss.item(), elapsed,
                 )
                 t0 = time.time()
 
             if step % cfg.sample_interval == 0:
-                print("\n--- Sample output ---")
-                print(self._generate_sample("Who is Romeo?"))
-                print("---------------------\n")
+                logger.info("Sample output:\n%s", self._generate_sample("Who is Romeo?"))
                 self._save_checkpoint(step)
 
         self._save_checkpoint(cfg.max_iters)
-        print(f"\nSFT complete. Checkpoint saved to {cfg.sft_checkpoint}")
+        logger.info("SFT complete. Checkpoint saved to %s", cfg.sft_checkpoint)
 
     def _save_checkpoint(self, step: int) -> None:
         torch.save(

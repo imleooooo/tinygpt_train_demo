@@ -1,3 +1,4 @@
+import logging
 import os
 
 import torch
@@ -5,6 +6,8 @@ import torch
 from src.model import TinyGPT
 from src.tokenizer import CharTokenizer
 from config import TrainConfig
+
+logger = logging.getLogger(__name__)
 
 
 def load_model(checkpoint_path: str, device: torch.device, dropout: float | None = None):
@@ -35,10 +38,11 @@ def load_model(checkpoint_path: str, device: torch.device, dropout: float | None
         if os.path.exists(tok_path_ckpt):
             tok_path = tok_path_ckpt
         elif os.path.exists(tok_path_cwd):
-            print(
-                f"Warning: tokenizer not found next to checkpoint; "
-                f"using CWD-relative path '{tok_path_cwd}'. "
-                "Verify this tokenizer matches the checkpoint's training run."
+            logger.warning(
+                "Tokenizer not found next to checkpoint; "
+                "using CWD-relative path '%s'. "
+                "Verify this tokenizer matches the checkpoint's training run.",
+                tok_path_cwd,
             )
             tok_path = tok_path_cwd
         else:
