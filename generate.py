@@ -50,10 +50,14 @@ def main(argv: list[str] | None = None) -> None:
             "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
             datefmt="%H:%M:%S",
         ))
+        _handler._tinygpt_owned = True  # sentinel so we can find it on re-entry
         for _name in ("src", __name__):
             _lg = logging.getLogger(_name)
+            # Remove only a handler we previously installed; leave host handlers intact.
+            for _h in _lg.handlers[:]:
+                if getattr(_h, "_tinygpt_owned", False):
+                    _lg.removeHandler(_h)
             _lg.setLevel(args.log_level)
-            _lg.handlers.clear()
             _lg.addHandler(_handler)
             _lg.propagate = False
 
