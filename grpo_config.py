@@ -57,5 +57,5 @@ class GRPOConfig:
             raise ValueError(f"sample_length must be >= 1, got {self.sample_length}")
         if self.temperature <= 0.0:
             raise ValueError(f"temperature must be > 0, got {self.temperature}")
-        if self.top_k < 1:
-            raise ValueError(f"top_k must be >= 1, got {self.top_k}")
+        if self.top_k < 0:
+            raise ValueError(f"top_k must be >= 0, got {self.top_k}")
