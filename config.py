@@ -37,3 +37,39 @@ class TrainConfig:
 
     # Reproducibility
     seed: int = 42
+
+    def __post_init__(self):
+        if self.block_size < 1:
+            raise ValueError(f"block_size must be >= 1, got {self.block_size}")
+        if self.n_embd < 1:
+            raise ValueError(f"n_embd must be >= 1, got {self.n_embd}")
+        if self.n_head < 1:
+            raise ValueError(f"n_head must be >= 1, got {self.n_head}")
+        if self.n_embd % self.n_head != 0:
+            raise ValueError(f"n_embd ({self.n_embd}) must be divisible by n_head ({self.n_head})")
+        if self.n_layer < 1:
+            raise ValueError(f"n_layer must be >= 1, got {self.n_layer}")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError(f"dropout must be in [0, 1), got {self.dropout}")
+        if self.batch_size < 1:
+            raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")
+        if self.max_iters < 1:
+            raise ValueError(f"max_iters must be >= 1, got {self.max_iters}")
+        if self.learning_rate <= 0.0:
+            raise ValueError(f"learning_rate must be > 0, got {self.learning_rate}")
+        if self.weight_decay < 0.0:
+            raise ValueError(f"weight_decay must be >= 0, got {self.weight_decay}")
+        if self.grad_clip <= 0.0:
+            raise ValueError(f"grad_clip must be > 0, got {self.grad_clip}")
+        if not 0.0 < self.val_split < 1.0:
+            raise ValueError(f"val_split must be in (0, 1), got {self.val_split}")
+        if self.log_interval < 1:
+            raise ValueError(f"log_interval must be >= 1, got {self.log_interval}")
+        if self.sample_interval < 1:
+            raise ValueError(f"sample_interval must be >= 1, got {self.sample_interval}")
+        if self.sample_length < 1:
+            raise ValueError(f"sample_length must be >= 1, got {self.sample_length}")
+        if self.temperature <= 0.0:
+            raise ValueError(f"temperature must be > 0, got {self.temperature}")
+        if self.top_k < 1:
+            raise ValueError(f"top_k must be >= 1, got {self.top_k}")
