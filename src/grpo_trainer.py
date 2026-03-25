@@ -55,9 +55,9 @@ class GRPOTrainer:
         if config.use_wandb:
             if _wandb is None:
                 raise ImportError("wandb is not installed; run `pip install wandb`")
-            _pre_existing = _wandb.run is not None
+            _pre_existing_run = _wandb.run
             self._wandb_run = _wandb.init(project="tinygpt-grpo", config=dataclasses.asdict(config))
-            self._wandb_run_owned = not _pre_existing
+            self._wandb_run_owned = self._wandb_run is not _pre_existing_run
 
         decay = [p for n, p in policy.named_parameters() if p.dim() >= 2]
         no_decay = [p for n, p in policy.named_parameters() if p.dim() < 2]

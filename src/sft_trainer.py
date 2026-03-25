@@ -44,9 +44,9 @@ class SFTTrainer:
         if config.use_wandb:
             if _wandb is None:
                 raise ImportError("wandb is not installed; run `pip install wandb`")
-            _pre_existing = _wandb.run is not None
+            _pre_existing_run = _wandb.run
             self._wandb_run = _wandb.init(project="tinygpt-sft", config=dataclasses.asdict(config))
-            self._wandb_run_owned = not _pre_existing
+            self._wandb_run_owned = self._wandb_run is not _pre_existing_run
 
         decay_params = [p for n, p in model.named_parameters() if p.dim() >= 2]
         no_decay_params = [p for n, p in model.named_parameters() if p.dim() < 2]
