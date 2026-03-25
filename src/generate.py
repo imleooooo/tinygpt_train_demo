@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import os
+import pickle
 
 import torch
 
@@ -22,7 +23,9 @@ def _load_ckpt(path: str, map_location) -> dict:
     """
     try:
         return torch.load(path, map_location=map_location, weights_only=True)
-    except Exception:
+    except pickle.UnpicklingError as exc:
+        if "Unsupported global" not in str(exc):
+            raise
         logger.warning(
             "Checkpoint '%s' cannot be loaded with weights_only=True (likely "
             "saved before the plain-dict config migration). Falling back to "
