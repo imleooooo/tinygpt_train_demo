@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import os
 
@@ -10,6 +11,31 @@ from config import TrainConfig
 logger = logging.getLogger(__name__)
 
 
+def _load_ckpt(path: str, map_location) -> dict:
+    """Load a checkpoint, using weights_only=True when possible.
+
+    Checkpoints saved before this project switched to plain-dict configs embed
+    a pickled TrainConfig dataclass, which weights_only=True refuses to
+    deserialize.  Fall back to weights_only=False for those legacy files, emit
+    a warning, and normalise any dataclass values to plain dicts so the rest of
+    the codebase can treat both formats identically.
+    """
+    try:
+        return torch.load(path, map_location=map_location, weights_only=True)
+    except Exception:
+        logger.warning(
+            "Checkpoint '%s' cannot be loaded with weights_only=True (likely "
+            "saved before the plain-dict config migration). Falling back to "
+            "weights_only=False. Re-save with the current code to silence this.",
+            path,
+        )
+        ckpt = torch.load(path, map_location=map_location, weights_only=False)
+        for key in ("config", "sft_config", "grpo_config"):
+            if key in ckpt and dataclasses.is_dataclass(ckpt[key]):
+                ckpt[key] = dataclasses.asdict(ckpt[key])
+        return ckpt
+
+
 def load_model(checkpoint_path: str, device: torch.device, dropout: float | None = None):
     """Load TinyGPT model and tokenizer from a checkpoint.
 
@@ -17,7 +43,7 @@ def load_model(checkpoint_path: str, device: torch.device, dropout: float | None
     them. Old checkpoints (pre-self-contained) fall back to reading
     cfg.tokenizer_file so previously trained checkpoints keep working.
     """
-    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    ckpt = _load_ckpt(checkpoint_path, map_location=device)
     cfg = TrainConfig(**ckpt["config"])
 
     if "tokenizer_char2idx" in ckpt:
