@@ -6,6 +6,7 @@ import logging
 
 import torch
 
+from config import TrainConfig
 from grpo_config import GRPOConfig
 from src.generate import load_model
 from src.grpo_trainer import GRPOTrainer
@@ -66,9 +67,9 @@ def main(argv: list[str] | None = None) -> None:
     # Peek at the SFT checkpoint's pretrain config to get model architecture
     # and dropout — same pattern as sft.py
     logger.info("Loading SFT checkpoint: %s", cfg.sft_checkpoint)
-    pretrain_cfg = torch.load(
-        cfg.sft_checkpoint, map_location="cpu", weights_only=False
-    )["config"]
+    pretrain_cfg = TrainConfig(**torch.load(
+        cfg.sft_checkpoint, map_location="cpu", weights_only=True
+    )["config"])
 
     # Policy model: loaded with training dropout, starts in train() mode
     policy, tokenizer, _ = load_model(

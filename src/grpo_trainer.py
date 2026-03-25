@@ -1,5 +1,6 @@
 """GRPO trainer: Group Relative Policy Optimization (DeepSeek-R1 style)."""
 
+import dataclasses
 import logging
 import time
 from typing import NamedTuple
@@ -255,8 +256,8 @@ class GRPOTrainer:
             {
                 "step": step,
                 "grpo": True,
-                "config": self.pretrain_config,   # TrainConfig — for load_model() compat
-                "grpo_config": self.config,
+                "config": dataclasses.asdict(self.pretrain_config),   # TrainConfig — for load_model() compat
+                "grpo_config": dataclasses.asdict(self.config),
                 "model_state": self.policy.state_dict(),
                 "optimizer_state": self.optimizer.state_dict(),
                 "tokenizer_char2idx": self.tokenizer.char2idx,

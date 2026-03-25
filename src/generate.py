@@ -17,8 +17,8 @@ def load_model(checkpoint_path: str, device: torch.device, dropout: float | None
     them. Old checkpoints (pre-self-contained) fall back to reading
     cfg.tokenizer_file so previously trained checkpoints keep working.
     """
-    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
-    cfg: TrainConfig = ckpt["config"]
+    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    cfg = TrainConfig(**ckpt["config"])
 
     if "tokenizer_char2idx" in ckpt:
         tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])

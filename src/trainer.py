@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import time
 
@@ -129,7 +130,7 @@ class Trainer:
                 "step": step,
                 "model_state": self.model.state_dict(),
                 "optimizer_state": self.optimizer.state_dict(),
-                "config": self.config,
+                "config": dataclasses.asdict(self.config),
                 "tokenizer_char2idx": self.tokenizer.char2idx,
             },
             self.config.checkpoint_file,

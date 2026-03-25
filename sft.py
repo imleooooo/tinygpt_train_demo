@@ -5,6 +5,7 @@ import logging
 
 import torch
 
+from config import TrainConfig
 from sft_config import SFTConfig
 from src.generate import load_model
 from src.sft_dataset import SFTDataset
@@ -68,9 +69,9 @@ def main(argv: list[str] | None = None) -> None:
     # instantiate nn.Dropout with the correct p. Peek at the config cheaply,
     # then do the full load once with the right dropout value.
     logger.info("Loading pretrained checkpoint: %s", cfg.pretrain_checkpoint)
-    pretrain_cfg = torch.load(
-        cfg.pretrain_checkpoint, map_location="cpu", weights_only=False
-    )["config"]
+    pretrain_cfg = TrainConfig(**torch.load(
+        cfg.pretrain_checkpoint, map_location="cpu", weights_only=True
+    )["config"])
     model, tokenizer, pretrain_cfg = load_model(
         cfg.pretrain_checkpoint, device, dropout=pretrain_cfg.dropout
     )

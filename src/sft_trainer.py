@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import time
 
@@ -118,8 +119,8 @@ class SFTTrainer:
                 "sft": True,
                 # load_model() reads "config" for model architecture params (block_size etc.)
                 # so we store the pretrain TrainConfig here for compatibility.
-                "config": self.pretrain_config,
-                "sft_config": self.config,
+                "config": dataclasses.asdict(self.pretrain_config),
+                "sft_config": dataclasses.asdict(self.config),
                 "model_state": self.model.state_dict(),
                 "optimizer_state": self.optimizer.state_dict(),
                 "tokenizer_char2idx": self.tokenizer.char2idx,
