@@ -263,6 +263,8 @@ class GRPOTrainer:
 
         self._save_checkpoint(cfg.max_iters)
         logger.info("GRPO complete. Checkpoint saved to %s", cfg.grpo_checkpoint)
+        if self._wandb_run:
+            self._wandb_run.finish()
 
     @torch.no_grad()
     def _print_sample(self, prompt: str) -> None:

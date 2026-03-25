@@ -141,6 +141,8 @@ class Trainer:
         # Final checkpoint
         self._save_checkpoint(cfg.max_iters)
         logger.info("Training complete. Checkpoint saved to %s", cfg.checkpoint_file)
+        if self._wandb_run:
+            self._wandb_run.finish()
 
     def _save_checkpoint(self, step: int) -> None:
         torch.save(
