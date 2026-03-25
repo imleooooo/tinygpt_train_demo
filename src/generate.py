@@ -20,11 +20,25 @@ def load_model(checkpoint_path: str, device: torch.device):
     if "tokenizer_char2idx" in ckpt:
         tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
     else:
-        # Resolve cfg.tokenizer_file relative to the checkpoint's directory so
-        # that a moved checkpoint still finds its co-located data/ folder, and
-        # cannot accidentally pick up a different run's tokenizer from CWD.
+        # Two valid legacy layouts exist:
+        #   1. checkpoint moved with its data/ folder — tokenizer lives next to it
+        #   2. checkpoint saved in a subdir (e.g. runs/run1/) while the tokenizer
+        #      remained at the project-root-relative path (e.g. data/tokenizer.json)
+        # Try checkpoint-directory-relative first, then CWD-relative, so both
+        # layouts keep working without requiring the user to pass extra flags.
         ckpt_dir = os.path.dirname(os.path.abspath(checkpoint_path))
-        tok_path = os.path.join(ckpt_dir, cfg.tokenizer_file)
+        tok_path_ckpt = os.path.join(ckpt_dir, cfg.tokenizer_file)
+        tok_path_cwd = os.path.join(os.getcwd(), cfg.tokenizer_file)
+        if os.path.exists(tok_path_ckpt):
+            tok_path = tok_path_ckpt
+        elif os.path.exists(tok_path_cwd):
+            tok_path = tok_path_cwd
+        else:
+            raise FileNotFoundError(
+                f"Cannot locate tokenizer for legacy checkpoint '{checkpoint_path}'. "
+                f"Tried:\n  {tok_path_ckpt}\n  {tok_path_cwd}\n"
+                "Re-train with the current code to produce a self-contained checkpoint."
+            )
         tokenizer = CharTokenizer.load(tok_path)
 
     model = TinyGPT(
