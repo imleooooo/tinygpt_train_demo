@@ -20,16 +20,31 @@ def load_model(checkpoint_path: str, device: torch.device):
     if "tokenizer_char2idx" in ckpt:
         tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
     else:
-        # Legacy checkpoint: resolve the tokenizer path relative to the checkpoint's
-        # own directory. This is the only lookup we attempt — falling back to CWD
-        # could silently bind the checkpoint to an unrelated tokenizer from whatever
-        # project happens to be the shell CWD, producing corrupted generation.
+        # Legacy checkpoint: probe two candidate paths in order.
+        #   1. Checkpoint-directory-relative — covers checkpoints moved with their
+        #      co-located data/ folder.
+        #   2. CWD-relative — covers the common layout where the checkpoint was saved
+        #      in a subdirectory (e.g. runs/run1/) while the tokenizer stayed at the
+        #      project-root path (e.g. data/tokenizer.json).
+        # The CWD fallback is intentionally non-silent: a warning is printed so the
+        # user can verify the right tokenizer is being used and is not surprised by
+        # a potential mismatch if the process was started from an unrelated directory.
         ckpt_dir = os.path.dirname(os.path.abspath(checkpoint_path))
-        tok_path = os.path.join(ckpt_dir, cfg.tokenizer_file)
-        if not os.path.exists(tok_path):
+        tok_path_ckpt = os.path.join(ckpt_dir, cfg.tokenizer_file)
+        tok_path_cwd  = os.path.abspath(cfg.tokenizer_file)
+        if os.path.exists(tok_path_ckpt):
+            tok_path = tok_path_ckpt
+        elif os.path.exists(tok_path_cwd):
+            print(
+                f"Warning: tokenizer not found next to checkpoint; "
+                f"using CWD-relative path '{tok_path_cwd}'. "
+                "Verify this tokenizer matches the checkpoint's training run."
+            )
+            tok_path = tok_path_cwd
+        else:
             raise FileNotFoundError(
                 f"Cannot locate tokenizer for legacy checkpoint '{checkpoint_path}'.\n"
-                f"Expected: {tok_path}\n"
+                f"Tried:\n  {tok_path_ckpt}\n  {tok_path_cwd}\n"
                 "Ensure data/tokenizer.json is co-located with the checkpoint, or "
                 "re-train with the current code to produce a self-contained checkpoint."
             )
