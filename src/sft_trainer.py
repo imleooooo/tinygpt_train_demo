@@ -40,10 +40,13 @@ class SFTTrainer:
         self.device = device
 
         self._wandb_run = None
+        self._wandb_run_owned = False
         if config.use_wandb:
             if _wandb is None:
                 raise ImportError("wandb is not installed; run `pip install wandb`")
+            _pre_existing = _wandb.run is not None
             self._wandb_run = _wandb.init(project="tinygpt-sft", config=dataclasses.asdict(config))
+            self._wandb_run_owned = not _pre_existing
 
         decay_params = [p for n, p in model.named_parameters() if p.dim() >= 2]
         no_decay_params = [p for n, p in model.named_parameters() if p.dim() < 2]
@@ -129,7 +132,7 @@ class SFTTrainer:
 
         self._save_checkpoint(cfg.max_iters)
         logger.info("SFT complete. Checkpoint saved to %s", cfg.sft_checkpoint)
-        if self._wandb_run:
+        if self._wandb_run and self._wandb_run_owned:
             self._wandb_run.finish()
 
     def _save_checkpoint(self, step: int) -> None:
