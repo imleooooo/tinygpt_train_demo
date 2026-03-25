@@ -4,8 +4,10 @@
 # Checkpoints — generated at runtime, not needed in the image
 *.pt
 
-# Exclude all local data files, then re-include runtime-required datasets
-data/
+# Exclude all local data files, then re-include runtime-required datasets.
+# Must use data/* (not data/) so the directory stays reachable and the
+# negation patterns below can re-include individual files inside it.
+data/*
 !data/tiny_shakespeare.txt
 !data/sft_data.json
 !data/grpo_prompts.json
