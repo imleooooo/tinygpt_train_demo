@@ -4,5 +4,6 @@
 # Checkpoints — generated at runtime, not needed in the image
 *.pt
 
-# Training data — fetched or mounted at runtime
-data/
+# Large training data — fetched or generated at runtime
+data/tiny_shakespeare.txt
+data/tokenizer.json
