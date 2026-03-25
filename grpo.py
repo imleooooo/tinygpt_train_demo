@@ -39,9 +39,19 @@ def main(argv: list[str] | None = None) -> None:
             datefmt="%H:%M:%S",
         )
     else:
-        # Embedded use: host owns root logging; only adjust level for our loggers.
-        logging.getLogger("src").setLevel(args.log_level)
-        logging.getLogger(__name__).setLevel(args.log_level)
+        # Embedded use: attach our own handler directly to our loggers and stop
+        # propagation so --log-level is honoured regardless of what level filters
+        # the host's root handlers enforce.
+        _handler = logging.StreamHandler()
+        _handler.setFormatter(logging.Formatter(
+            "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            datefmt="%H:%M:%S",
+        ))
+        for _name in ("src", __name__):
+            _lg = logging.getLogger(_name)
+            _lg.setLevel(args.log_level)
+            _lg.addHandler(_handler)
+            _lg.propagate = False
 
     cfg = GRPOConfig()
     device = get_device()
