@@ -115,7 +115,15 @@ The reward function (`src/reward.py`) is rule-based for demo purposes:
 | Mentions a Shakespeare character name | +0.3 |
 | Starts with a capital letter | +0.3 |
 
-Training prints `loss / mean_reward / kl` every 10 steps.
+In production, swap `compute_reward()` for a learned reward model trained on human preference pairs.
+
+**Implementation notes:**
+
+- **Log-probability**: responses that overflow `block_size` are scored with a batched second pass using the same B-token context window that `generate()` used — so training and sampling see identical conditional distributions.
+- **KL penalty**: applied only to the logit rows that predict generated tokens (`[response_start-1, T-1)`), not to the fixed instruction prefix. Logit row `i` predicts token `i+1`, so row `response_start-1` is the first action.
+- **Reference model**: the frozen SFT checkpoint loaded with `dropout=0` and `requires_grad=False`. Policy is loaded with the original SFT dropout to avoid over-fitting the small 20-prompt dataset.
+
+Training prints `loss / mean_reward ± std / kl` every 10 steps.
 
 Key hyperparameters in `grpo_config.py`: `G=4`, `beta=0.04`, `lr=5e-5`, `max_iters=100`.
 
