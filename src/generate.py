@@ -20,24 +20,18 @@ def load_model(checkpoint_path: str, device: torch.device):
     if "tokenizer_char2idx" in ckpt:
         tokenizer = CharTokenizer.from_vocab(ckpt["tokenizer_char2idx"])
     else:
-        # Two valid legacy layouts exist:
-        #   1. checkpoint moved with its data/ folder — tokenizer lives next to it
-        #   2. checkpoint saved in a subdir (e.g. runs/run1/) while the tokenizer
-        #      remained at the project-root-relative path (e.g. data/tokenizer.json)
-        # Try checkpoint-directory-relative first, then CWD-relative, so both
-        # layouts keep working without requiring the user to pass extra flags.
+        # Legacy checkpoint: resolve the tokenizer path relative to the checkpoint's
+        # own directory. This is the only lookup we attempt — falling back to CWD
+        # could silently bind the checkpoint to an unrelated tokenizer from whatever
+        # project happens to be the shell CWD, producing corrupted generation.
         ckpt_dir = os.path.dirname(os.path.abspath(checkpoint_path))
-        tok_path_ckpt = os.path.join(ckpt_dir, cfg.tokenizer_file)
-        tok_path_cwd = os.path.join(os.getcwd(), cfg.tokenizer_file)
-        if os.path.exists(tok_path_ckpt):
-            tok_path = tok_path_ckpt
-        elif os.path.exists(tok_path_cwd):
-            tok_path = tok_path_cwd
-        else:
+        tok_path = os.path.join(ckpt_dir, cfg.tokenizer_file)
+        if not os.path.exists(tok_path):
             raise FileNotFoundError(
-                f"Cannot locate tokenizer for legacy checkpoint '{checkpoint_path}'. "
-                f"Tried:\n  {tok_path_ckpt}\n  {tok_path_cwd}\n"
-                "Re-train with the current code to produce a self-contained checkpoint."
+                f"Cannot locate tokenizer for legacy checkpoint '{checkpoint_path}'.\n"
+                f"Expected: {tok_path}\n"
+                "Ensure data/tokenizer.json is co-located with the checkpoint, or "
+                "re-train with the current code to produce a self-contained checkpoint."
             )
         tokenizer = CharTokenizer.load(tok_path)
 
