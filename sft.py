@@ -32,6 +32,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
+    cfg = SFTConfig()
+
     if not logging.root.handlers:
         # CLI invocation: no handlers yet, safe to configure root logging.
         logging.basicConfig(
@@ -39,6 +41,9 @@ def main(argv: list[str] | None = None) -> None:
             format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
             datefmt="%H:%M:%S",
         )
+        random.seed(cfg.seed)
+        torch.manual_seed(cfg.seed)
+        torch.backends.cudnn.deterministic = True
     else:
         # Embedded use: attach our own handler directly to our loggers and stop
         # propagation so --log-level is honoured regardless of what level filters
@@ -59,10 +64,6 @@ def main(argv: list[str] | None = None) -> None:
             _lg.addHandler(_handler)
             _lg.propagate = False
 
-    cfg = SFTConfig()
-    random.seed(cfg.seed)
-    torch.manual_seed(cfg.seed)
-    torch.backends.cudnn.deterministic = True
     device = get_device()
     logger.info("Using device: %s", device)
 
