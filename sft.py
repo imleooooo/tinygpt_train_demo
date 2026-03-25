@@ -21,10 +21,17 @@ def main():
     device = get_device()
     print(f"Using device: {device}")
 
-    # 1. Load pretrained model + tokenizer from self-contained checkpoint
+    # 1. Load pretrained model + tokenizer.
+    # We need pretrain_cfg.dropout before calling load_model() so we can
+    # instantiate nn.Dropout with the correct p. Peek at the config cheaply,
+    # then do the full load once with the right dropout value.
     print(f"Loading pretrained checkpoint: {cfg.pretrain_checkpoint}")
-    model, tokenizer, pretrain_cfg = load_model(cfg.pretrain_checkpoint, device)
-    model.train()
+    pretrain_cfg = torch.load(
+        cfg.pretrain_checkpoint, map_location="cpu", weights_only=False
+    )["config"]
+    model, tokenizer, pretrain_cfg = load_model(
+        cfg.pretrain_checkpoint, device, dropout=pretrain_cfg.dropout
+    )
     print(f"Model parameters: {model.num_parameters():,}")
     print(f"Vocab size: {tokenizer.vocab_size}")
 

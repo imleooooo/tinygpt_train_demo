@@ -36,9 +36,14 @@ class SFTDataset(Dataset):
         for ex in examples:
             full_text, response_start = format_example(ex["instruction"], ex["response"])
 
-            # Encode full sequence and the instruction prefix
-            full_ids = tokenizer.encode(full_text, errors="ignore")
-            prefix_len = len(tokenizer.encode(response_start, errors="ignore"))
+            # Encode full sequence and the instruction prefix.
+            # Use errors="raise" (the default) so unseen characters surface
+            # immediately as a clear ValueError rather than being silently
+            # dropped — which would corrupt training text and misalign the
+            # loss mask. The README directs users to extend sft_data.json,
+            # so surfacing bad input here is important.
+            full_ids = tokenizer.encode(full_text)
+            prefix_len = len(tokenizer.encode(response_start))
 
             # Truncate to block_size + 1 so we can produce block_size label pairs
             full_ids = full_ids[: block_size + 1]

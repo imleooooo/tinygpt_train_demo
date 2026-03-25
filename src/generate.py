@@ -7,7 +7,7 @@ from src.tokenizer import CharTokenizer
 from config import TrainConfig
 
 
-def load_model(checkpoint_path: str, device: torch.device):
+def load_model(checkpoint_path: str, device: torch.device, dropout: float | None = None):
     """Load TinyGPT model and tokenizer from a checkpoint.
 
     New checkpoints are self-contained: the tokenizer vocab is embedded inside
@@ -50,16 +50,24 @@ def load_model(checkpoint_path: str, device: torch.device):
             )
         tokenizer = CharTokenizer.load(tok_path)
 
+    # Use caller-supplied dropout when provided (e.g. SFT fine-tuning needs the
+    # original training dropout). Default to 0.0 for inference: nn.Dropout modules
+    # are instantiated with the given p, so model.train() alone cannot restore
+    # dropout if the module was built with p=0.
+    effective_dropout = dropout if dropout is not None else 0.0
     model = TinyGPT(
         vocab_size=tokenizer.vocab_size,
         block_size=cfg.block_size,
         n_embd=cfg.n_embd,
         n_head=cfg.n_head,
         n_layer=cfg.n_layer,
-        dropout=0.0,  # no dropout at inference
+        dropout=effective_dropout,
     ).to(device)
     model.load_state_dict(ckpt["model_state"])
-    model.eval()
+    if effective_dropout == 0.0:
+        model.eval()
+    else:
+        model.train()
 
     return model, tokenizer, cfg
 
