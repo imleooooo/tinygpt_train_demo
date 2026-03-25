@@ -21,10 +21,17 @@ def _load_ckpt(path: str, map_location) -> dict:
     a warning, and normalise any dataclass values to plain dicts so the rest of
     the codebase can treat both formats identically.
     """
+    _LEGACY_CONFIG_GLOBALS = {
+        "config.TrainConfig",
+        "sft_config.SFTConfig",
+        "grpo_config.GRPOConfig",
+    }
+
     try:
         return torch.load(path, map_location=map_location, weights_only=True)
     except pickle.UnpicklingError as exc:
-        if "Unsupported global" not in str(exc):
+        msg = str(exc)
+        if not any(f"GLOBAL {g}" in msg for g in _LEGACY_CONFIG_GLOBALS):
             raise
         logger.warning(
             "Checkpoint '%s' cannot be loaded with weights_only=True (likely "
