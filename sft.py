@@ -31,12 +31,17 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    logging.basicConfig(
-        level=args.log_level,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%H:%M:%S",
-        force=True,
-    )
+    if not logging.root.handlers:
+        # CLI invocation: no handlers yet, safe to configure root logging.
+        logging.basicConfig(
+            level=args.log_level,
+            format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            datefmt="%H:%M:%S",
+        )
+    else:
+        # Embedded use: host owns root logging; only adjust level for our loggers.
+        logging.getLogger("src").setLevel(args.log_level)
+        logging.getLogger(__name__).setLevel(args.log_level)
 
     cfg = SFTConfig()
     device = get_device()
