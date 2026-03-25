@@ -22,7 +22,7 @@ def get_device() -> torch.device:
     return torch.device("cpu")
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Pre-train TinyGPT on Tiny Shakespeare")
     parser.add_argument(
         "--log-level",
@@ -30,12 +30,13 @@ def main() -> None:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging verbosity (default: INFO)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logging.basicConfig(
         level=args.log_level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         datefmt="%H:%M:%S",
+        force=True,
     )
 
     cfg = TrainConfig()

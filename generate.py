@@ -19,7 +19,7 @@ def get_device() -> torch.device:
     return torch.device("cpu")
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Generate text with TinyGPT")
     parser.add_argument("--prompt", type=str, default="ROMEO:\n", help="Seed text")
     parser.add_argument("--max_new_tokens", type=int, default=500, help="Tokens to generate")
@@ -32,12 +32,13 @@ def main() -> None:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging verbosity (default: WARNING)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logging.basicConfig(
         level=args.log_level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         datefmt="%H:%M:%S",
+        force=True,
     )
 
     device = get_device()
