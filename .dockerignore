@@ -1,0 +1,8 @@
+.git/
+.venv/
+
+# Checkpoints — generated at runtime, not needed in the image
+*.pt
+
+# Training data — fetched or mounted at runtime
+data/
