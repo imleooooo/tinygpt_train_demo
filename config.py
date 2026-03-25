@@ -31,6 +31,10 @@ class TrainConfig:
     sample_interval: int = 500  # generate sample text every N steps
     sample_length: int = 200    # characters to generate in sample
 
+    # Experiment tracking
+    use_wandb: bool = False
+    metrics_file: str = ""      # path for JSONL metrics; "" disables
+
     # Generation defaults
     temperature: float = 0.8
     top_k: int = 40

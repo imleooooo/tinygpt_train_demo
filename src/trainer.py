@@ -1,8 +1,14 @@
 import dataclasses
+import json
 import logging
 import time
 
 import torch
+
+try:
+    import wandb as _wandb
+except ImportError:
+    _wandb = None
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
@@ -29,6 +35,12 @@ class Trainer:
         self.tokenizer = tokenizer
         self.config = config
         self.device = device
+
+        self._wandb_run = None
+        if config.use_wandb:
+            if _wandb is None:
+                raise ImportError("wandb is not installed; run `pip install wandb`")
+            self._wandb_run = _wandb.init(project="tinygpt-pretrain", config=dataclasses.asdict(config))
 
         # Separate weight decay params from no-decay params (bias, LayerNorm)
         decay_params = [p for n, p in model.named_parameters() if p.dim() >= 2]
@@ -114,6 +126,12 @@ class Trainer:
                     "step %5d/%d | train loss %.4f | val loss %.4f | %.1fs elapsed",
                     step, cfg.max_iters, loss.item(), val_loss, elapsed,
                 )
+                metrics = {"step": step, "train_loss": loss.item(), "val_loss": val_loss}
+                if self._wandb_run:
+                    self._wandb_run.log(metrics)
+                if cfg.metrics_file:
+                    with open(cfg.metrics_file, "a") as _f:
+                        _f.write(json.dumps(metrics) + "\n")
                 t0 = time.time()
 
             if step % cfg.sample_interval == 0:

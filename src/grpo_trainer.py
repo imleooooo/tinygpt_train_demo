@@ -1,11 +1,17 @@
 """GRPO trainer: Group Relative Policy Optimization (DeepSeek-R1 style)."""
 
 import dataclasses
+import json
 import logging
 import time
 from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
+
+try:
+    import wandb as _wandb
+except ImportError:
+    _wandb = None
 
 import torch
 import torch.nn.functional as F
@@ -43,6 +49,12 @@ class GRPOTrainer:
         self.pretrain_config = pretrain_config
         self.device = device
         self.block_size = pretrain_config.block_size
+
+        self._wandb_run = None
+        if config.use_wandb:
+            if _wandb is None:
+                raise ImportError("wandb is not installed; run `pip install wandb`")
+            self._wandb_run = _wandb.init(project="tinygpt-grpo", config=dataclasses.asdict(config))
 
         decay = [p for n, p in policy.named_parameters() if p.dim() >= 2]
         no_decay = [p for n, p in policy.named_parameters() if p.dim() < 2]
@@ -231,6 +243,18 @@ class GRPOTrainer:
                     step, cfg.max_iters, loss.item(), mean_r, std_r,
                     (kl_total / n).item(), elapsed,
                 )
+                metrics = {
+                    "step": step,
+                    "loss": loss.item(),
+                    "reward_mean": mean_r,
+                    "reward_std": std_r,
+                    "kl": (kl_total / n).item(),
+                }
+                if self._wandb_run:
+                    self._wandb_run.log(metrics)
+                if cfg.metrics_file:
+                    with open(cfg.metrics_file, "a") as _f:
+                        _f.write(json.dumps(metrics) + "\n")
                 t0 = time.time()
 
             if step % cfg.sample_interval == 0:

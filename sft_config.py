@@ -24,6 +24,10 @@ class SFTConfig:
     temperature: float = 0.7
     top_k: int = 40
 
+    # Experiment tracking
+    use_wandb: bool = False
+    metrics_file: str = ""      # path for JSONL metrics; "" disables
+
     # Reproducibility
     seed: int = 42
 
